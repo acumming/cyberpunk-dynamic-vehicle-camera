@@ -1,5 +1,5 @@
-public class DSVCConfig extends ScriptableSystem {
 
+public class DSVCConfig extends ScriptableSystem {
     // General Toggles
     @runtimeProperty("ModSettings.mod", "Dynamic Speed Vehicle Camera")
     @runtimeProperty("ModSettings.category", "General Settings")
@@ -36,6 +36,26 @@ public class DSVCConfig extends ScriptableSystem {
     @runtimeProperty("ModSettings.displayValues.DriverCombatFar", "Combat Far")
     @runtimeProperty("ModSettings.dependency", "CombatOverride")
     public let DefaultCombatCamera: vehicleCameraPerspective = vehicleCameraPerspective.DriverCombatMedium;
+
+    // Delay settings
+    @runtimeProperty("ModSettings.mod", "Dynamic Speed Vehicle Camera")
+    @runtimeProperty("ModSettings.category", "General Settings")
+    @runtimeProperty("ModSettings.category.order", "0")
+    @runtimeProperty("ModSettings.step", "0.1")
+    @runtimeProperty("ModSettings.min", "0.0")
+    @runtimeProperty("ModSettings.max", "10.0")
+    @runtimeProperty("ModSettings.displayName", "Camera Change Delay")
+    @runtimeProperty("ModSettings.description", "Amount of time in seconds before the camera transitions to the new perspective. Default: 2 seconds")
+    @runtimeProperty("ModSettings.dependency", "EnableDynamicCamera")
+    public let cameraChangeDelay: Float = 2.0;
+
+    @runtimeProperty("ModSettings.mod", "Dynamic Speed Vehicle Camera")
+    @runtimeProperty("ModSettings.category", "General Settings")
+    @runtimeProperty("ModSettings.category.order", "0")
+    @runtimeProperty("ModSettings.displayName", "Time Dilation Effects Delay")
+    @runtimeProperty("ModSettings.description", "Enable to allow time dilation effects like the scanner to effect the delay time. Default: off")
+    @runtimeProperty("ModSettings.dependency", "EnableDynamicCamera")
+    public let timeDilationEffectsDelay: Bool = false;
 
     // Car Settings
     @runtimeProperty("ModSettings.mod", "Dynamic Speed Vehicle Camera")
@@ -145,29 +165,35 @@ public class DSVCConfig extends ScriptableSystem {
 
     public let activeVehicleMaxSpeedSeen: Int32;
     public let lastActiveVehicle: wref<VehicleObject>;
-
     public let cachedVehicleType: gamedataVehicleType;
 
     public static func Get(gi: GameInstance) -> ref<DSVCConfig> {
         return GameInstance.GetScriptableSystemsContainer(gi).Get(n"DSVCConfig") as DSVCConfig;
     }
 
-    private func OnAttach() -> Void { dsvcRegisterListener(this); }
-    private func OnDetach() -> Void { dsvcUnregisterListener(this); }
+    private func OnAttach() -> Void {
+        dsvcRegisterListener(this);
+    }
+
+    private func OnDetach() -> Void {
+        dsvcUnregisterListener(this);
+    }
 }
 
-@if(ModuleExists("ModSettingsModule")) 
+@if(ModuleExists("ModSettingsModule"))
 public func dsvcRegisterListener(listener: ref<IScriptable>) {
     ModSettings.RegisterListenerToClass(listener);
 }
 
-@if(ModuleExists("ModSettingsModule")) 
+@if(ModuleExists("ModSettingsModule"))
 public func dsvcUnregisterListener(listener: ref<IScriptable>) {
     ModSettings.UnregisterListenerToClass(listener);
 }
 
-@if(!ModuleExists("ModSettingsModule")) 
-public func dsvcRegisterListener(listener: ref<IScriptable>) { }
+@if(!ModuleExists("ModSettingsModule"))
+public func dsvcRegisterListener(listener: ref<IScriptable>) {
+}
 
-@if(!ModuleExists("ModSettingsModule")) 
-public func dsvcUnregisterListener(listener: ref<IScriptable>) { }
+@if(!ModuleExists("ModSettingsModule"))
+public func dsvcUnregisterListener(listener: ref<IScriptable>) {
+}
