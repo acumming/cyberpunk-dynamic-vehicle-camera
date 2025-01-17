@@ -18,12 +18,14 @@ public let cameraEventDelayID: DelayID;
 
 @wrapMethod(VehicleComponent)
 protected final func OnVehicleSpeedChange(speed: Float) -> Void {
+    wrappedMethod(speed);
+
     let newPerspective: vehicleCameraPerspective;
 
     // Caching. Not sure if this will cause issues.
     let vehicle: wref<VehicleObject> = this.GetVehicle();
     let gameInstance: GameInstance = GetGameInstance();
-    let player = GetPlayer(gameInstance);
+    let player: ref<PlayerPuppet> = GetPlayer(gameInstance);
 
     this.dsvcConfig = DSVCConfig.Get(gameInstance);
 
@@ -75,13 +77,13 @@ protected final func OnVehicleSpeedChange(speed: Float) -> Void {
     // Determine vehicle type
     let vehicleRecord = TweakDBInterface.GetVehicleRecord(vehicle.GetRecordID());
     let vehicleType = vehicleRecord.Type().Type();
-    let vehicleClassName: CName = vehicleRecord.GetClassName();
-    let vehicleDisplayName: CName = vehicleRecord.DisplayName();
-    LogChannel(n"DynamicVehicleCamera", s"vehicleClassName: " + ToString(vehicleClassName));
-    LogChannel(
-        n"DynamicVehicleCamera",
-        s"vehicleDisplayName: " + ToString(vehicleDisplayName)
-    );
+    // let vehicleClassName: CName = vehicleRecord.GetClassName();
+    // let vehicleDisplayName: CName = vehicleRecord.DisplayName();
+    // LogChannel(n"DynamicVehicleCamera", s"vehicleClassName: " + ToString(vehicleClassName));
+    // LogChannel(
+    //     n"DynamicVehicleCamera",
+    //     s"vehicleDisplayName: " + ToString(vehicleDisplayName)
+    // );
 
     // Respect toggles for cars and bikes
     let excludeTPPFar: Bool;
@@ -138,40 +140,60 @@ protected final func OnVehicleSpeedChange(speed: Float) -> Void {
     // If it is, skip scheduling a new callback
     // This is to throttle the camera events
     if this.hasLastPerspective && Equals(newPerspective, this.lastQueuedPerspective) {
+        // LogChannel(
+        //     n"DynamicVehicleCamera",
+        //     "Skipping camera event, already queued: " + ToString(newPerspective)
+        // );
         return;
     }
+    LogChannel(
+        n"DynamicVehicleCamera",
+        "setting newPerspective to " + ToString(newPerspective) + " at " + ToString(mph) + " mph"
+    );
     this.hasLastPerspective = true;
     this.lastQueuedPerspective = newPerspective;
     camEvent.cameraPerspective = newPerspective;
 
     // Set up the delay system
-    let delaySystem: ref<DelaySystem> = GameInstance.GetDelaySystem(GetGameInstance());
+    let delaySystem: ref<DelaySystem> = GameInstance.GetDelaySystem(gameInstance);
     let delay: Float = cameraChangeDelay;
     let isAffectedByTimeDilation: Bool = timeDilationEffectsDelay;
 
-    // Before scheduling a new callback, cancel any existing one
-    if !Equals(this.cameraEventDelayID, GetInvalidDelayID()) {
+    if IsDefined(delaySystem) {
+        let callback: ref<CameraEventCustomCallback> = CameraEventCustomCallback.Create(player, camEvent);
+
+        // Before scheduling a new callback, cancel any existing one
+        // if !Equals(this.cameraEventDelayID, GetInvalidDelayID()) {
+        if this.cameraEventDelayID != new DelayID() {
+            LogChannel(
+                n"DynamicVehicleCamera",
+                "Cancelling existing camera event delay: " + ToString(this.cameraEventDelayID)
+            );
+            delaySystem.CancelCallback(this.cameraEventDelayID);
+        }
+        // this.cameraEventDelayID = GetInvalidDelayID();
+
         LogChannel(
             n"DynamicVehicleCamera",
-            "Cancelling existing camera event delay: " + ToString(this.cameraEventDelayID)
+            "remaining delay: "
+                + ToString(delaySystem.GetRemainingDelayTime(this.cameraEventDelayID))
         );
-        delaySystem.CancelCallback(this.cameraEventDelayID);
-        this.cameraEventDelayID = GetInvalidDelayID();
+
+        this.cameraEventDelayID = delaySystem.DelayCallback(callback, delay, isAffectedByTimeDilation);
+        LogChannel(
+            n"DynamicVehicleCamera",
+            "Scheduling new camera event delay: " + ToString(this.cameraEventDelayID)
+        );
+    } else {
+        LogChannel(n"DynamicVehicleCamera", "DelaySystem not defined");
     }
-
-    this.cameraEventDelayID = delaySystem
-        .DelayCallback(
-            CameraEventCustomCallback.Create(player, camEvent),
-            delay,
-            isAffectedByTimeDilation
-        );
-
-    // player.QueueEvent(camEvent);
-    wrappedMethod(speed);
 }
 
+// player.QueueEvent(camEvent);
+// wrappedMethod(speed);
 /**
  * Custom callback class that will be used to queue the camera event after the specified delay
+ * https://wiki.redmodding.org/cyberpunk-2077-modding/modding-guides/sound/custom-sounds-and-custom-emitters-with-audioware
  */
 // TODO: add toggle for AVs
 // TODO: add a manual cancel when the user changes the camera manually
@@ -204,6 +226,10 @@ public class CameraEventCustomCallback extends DelayCallback {
 
         self.playerRef = player;
         self.camEventRef = camEvent;
+        LogChannel(
+            n"DynamicVehicleCamera",
+            "Creating new CameraEventCustomCallback with " + ToString(camEvent.cameraPerspective)
+        );
 
         return self;
     }
